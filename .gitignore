@@ -2,4 +2,8 @@
 .gitignore
 .idea/
 .vertx/
+.settings/
+.classpath
+.project
 AppSearchServer.iml
+target/

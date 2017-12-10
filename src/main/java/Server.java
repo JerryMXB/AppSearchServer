@@ -1,4 +1,6 @@
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServer;
@@ -16,14 +18,17 @@ public class Server extends AbstractVerticle {
             response.putHeader("content-type", "text/plain");
             response.putHeader("content-type", "text/plain");
             response.putHeader("Access-Control-Allow-Origin", "*");
-            String searchResponse = "";
+            List<String> searchResponse = new ArrayList<>();
 			try {
 				searchResponse = ElasticSearchClient.search(searchKey);
 			} catch (IOException e) {
 				e.printStackTrace();
-				searchResponse = "500 Error";
 			}
-            response.end(searchResponse);
+			StringBuilder strBuilder = new StringBuilder();
+			for(String result: searchResponse) {
+				strBuilder.append(result);
+			}
+            response.end(strBuilder.toString());
         });
         server.requestHandler(router::accept).listen(8080);
     }
