@@ -5,6 +5,7 @@ import java.util.List;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 
 public class Server extends AbstractVerticle {
@@ -15,20 +16,15 @@ public class Server extends AbstractVerticle {
         router.route("/search/:key").handler(routingContext -> {
         	String searchKey = routingContext.request().getParam("key");
         	HttpServerResponse response = routingContext.response();
-            response.putHeader("content-type", "text/plain");
-            response.putHeader("content-type", "text/plain");
+            response.putHeader("content-type", "text/json");
             response.putHeader("Access-Control-Allow-Origin", "*");
-            List<String> searchResponse = new ArrayList<>();
+            JsonObject searchResponse = new JsonObject();
 			try {
 				searchResponse = ElasticSearchClient.search(searchKey);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			StringBuilder strBuilder = new StringBuilder();
-			for(String result: searchResponse) {
-				strBuilder.append(result);
-			}
-            response.end(strBuilder.toString());
+            response.end(searchResponse.toString());
         });
         server.requestHandler(router::accept).listen(8080);
     }
