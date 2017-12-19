@@ -15,7 +15,7 @@
     <link href="bootstrap/vendor/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css">
     <style type="text/css">
         body {
-    padding: 40px 0px;   
+    padding: 40px 0px;
 }
 
 #search {
@@ -25,7 +25,7 @@
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.7);
-    
+
     -webkit-transition: all 0.5s ease-in-out;
 	-moz-transition: all 0.5s ease-in-out;
 	-o-transition: all 0.5s ease-in-out;
@@ -37,7 +37,7 @@
 	-o-transform: translate(0px, -100%) scale(0, 0);
 	-ms-transform: translate(0px, -100%) scale(0, 0);
 	transform: translate(0px, -100%) scale(0, 0);
-    
+
     opacity: 0;
 }
 
@@ -46,7 +46,7 @@
     -moz-transform: translate(0px, 0px) scale(1, 1);
 	-o-transform: translate(0px, 0px) scale(1, 1);
 	-ms-transform: translate(0px, 0px) scale(1, 1);
-	transform: translate(0px, 0px) scale(1, 1); 
+	transform: translate(0px, 0px) scale(1, 1);
     opacity: 1;
 }
 
@@ -100,7 +100,7 @@
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                 </button>
-                <a class="navbar-brand" href="#">Homework3 Search</a>
+                <a class="navbar-brand" href="#">App Search</a>
             </div>
 
             <!-- Collect the nav links, forms, and other content for toggling -->
@@ -124,7 +124,7 @@
             </div>
         </div>
     </div>
-    
+
     <div id="box2" class="col-lg-12" style="display: none;">
         <div class="panel panel-info">
             <div class="panel-heading">
@@ -138,7 +138,7 @@
             </div>
         </div>
     </div>
-    
+
     <div id="box3" class="col-lg-12" style="display: none;">
         <div class="panel panel-info">
             <div class="panel-heading">
@@ -152,7 +152,7 @@
             </div>
         </div>
     </div>
-    
+
     <div id="box4" class="col-lg-12" style="display: none;">
         <div class="panel panel-info">
             <div class="panel-heading">
@@ -166,7 +166,7 @@
             </div>
         </div>
     </div>
-    
+
     <div id="box5" class="col-lg-12" style="display: none;">
         <div class="panel panel-info">
             <div class="panel-heading">
@@ -197,7 +197,7 @@ $(function () {
         $('#search').addClass('open');
         $('#search > form > input[type="search"]').focus();
     });
-    
+
     $('#search, #search button.close').on('click keyup', function(event) {
         if (event.target == this || event.target.className == 'close' || event.keyCode == 27) {
             $(this).removeClass('open');
@@ -205,27 +205,27 @@ $(function () {
     });
     $("#searchButton").click(function(){
         var keyword = $("#word").val();
-        $.ajax({url: "http://184.72.169.37:8080?word=" + keyword, success: function(result){
-            var results = result.split("###");
+        $.ajax({url: "http://34.234.167.23:9090/search/" + keyword, success: function(results){
             console.log(results);
-            if (results[0] == "null" || results[0] == "") {
+            results = results["result"];
+            if (results == "null" || results.length == 0) {
                 alert("There is no results!");
-            } 
+            }
             else {
-                for(i=0; i < results.length-1; i++) {
-                    if (results[i] == "null") continue;
-                    $("#url" + (i+1)).attr("href", results[i].split("$$$")[0]);
-                    $("#url" + (i+1)).html(results[i].split("$$$")[0]);
-                    $("#result" + (i+1)).html(results[i].split("$$$")[1]);
-                    $("#foot" + (i+1)).html(results[i].split("$$$")[2]);
+                for(i=0; i < results.length; i++) {
+                    result = results[i];
+                    if (result == "null") continue;
+                    $("#url" + (i+1)).attr("href", result["url"]);
+                    $("#url" + (i+1)).html(result["appName"]);
+                    $("#result" + (i+1)).html(result["description"]);
+                    $("#foot" + (i+1)).html("RankScore:" + result["score"] + " AppPageRank:" + result["apprank"]);
                     $("#box" + (i+1)).show();
                     $("#closeButton").click();
                 }
             }
-            alert("Take " + results[results.length-1] + "ms");
         }});
     });
-    
+
 });
 </script>
 </body>
