@@ -81,27 +81,26 @@ public class ElasticSearchClient {
 		if(resultJson != null) {
 			mergedJson = mergeJsonResult(mergedJson, resultJson);
 		}
-
+		JsonObject rankedJson = rankResult(mergedJson);
 		JsonObject cascadedJson = doCascading(mergedJson, k);
 		return cascadedJson;
 	}
 	
 	private static JsonObject rankResult(JsonObject result) {
+		double pageRankWeight = 10000.0;
 		JsonArray jsonArray = result.getJsonArray("result");
 		List<JsonObject> jsonList = new ArrayList<>();
 		for (int i = 0; i < jsonArray.size(); i++) {
 			jsonList.add(jsonArray.getJsonObject(i));
 		}
 		for (int i = 0; i < jsonList.size(); i++) {
-			// TO DO: fetch apprank and put it into variable apprank
-			//
 			App app = mapper.load(App.class, jsonList.get(i).getString("url"));
-			jsonList.get(i).put("apprank", app.getPageRank());
+			jsonList.get(i).put("score", pageRankWeight * app.getPageRank() + jsonList.get(i).getDouble("score"));
 		}
 		Collections.sort(jsonList, new Comparator<JsonObject> () {
 			@Override
 			public int compare(JsonObject o1, JsonObject o2) {
-				return o2.getDouble("apprank").compareTo(o1.getDouble("apprank"));
+				return o2.getDouble("score").compareTo(o1.getDouble("score"));
 			}
 		});
 		return new JsonObject().put("result", jsonList);
