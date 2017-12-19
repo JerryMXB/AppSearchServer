@@ -26,6 +26,6 @@ public class Server extends AbstractVerticle {
 			}
             response.end(searchResponse.toString());
         });
-        server.requestHandler(router::accept).listen(8080);
+        server.requestHandler(router::accept).listen(9090);
     }
 }

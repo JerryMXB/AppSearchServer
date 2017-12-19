@@ -7,6 +7,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import org.apache.http.HttpHost;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -26,7 +31,9 @@ import io.vertx.core.json.JsonArray;
 public class ElasticSearchClient {
 	private static RestHighLevelClient client = null;
 	private static String host = "search-app-5nms4szu2o7uqd7eq2q7vmov6u.us-east-1.es.amazonaws.com";
-	
+	private static AmazonDynamoDB dynamoDBClient = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.US_EAST_1).withCredentials(new ProfileCredentialsProvider("AppCrawler")).build();
+	private static DynamoDBMapper mapper = new DynamoDBMapper(dynamoDBClient);
+
 	private static RestHighLevelClient getClient() {
 		if (client == null) {
 			client = new RestHighLevelClient(RestClient.builder(
@@ -86,10 +93,10 @@ public class ElasticSearchClient {
 			jsonList.add(jsonArray.getJsonObject(i));
 		}
 		for (int i = 0; i < jsonList.size(); i++) {
-			double apprank = 1.0;
 			// TO DO: fetch apprank and put it into variable apprank
 			//
-			jsonList.get(i).put("apprank", apprank);
+			App app = mapper.load(App.class, jsonList.get(i).getString("url"));
+			jsonList.get(i).put("apprank", app.getPageRank());
 		}
 		Collections.sort(jsonList, new Comparator<JsonObject> () {
 			@Override
