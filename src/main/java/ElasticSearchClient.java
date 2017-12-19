@@ -1,5 +1,8 @@
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +21,7 @@ import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.json.JsonArray;
 
 public class ElasticSearchClient {
 	private static RestHighLevelClient client = null;
@@ -33,53 +37,112 @@ public class ElasticSearchClient {
 	
 	public static JsonObject search(String term) throws IOException {
 		client = getClient();
-		JsonObject queryResult = runQuery(term);   
+		JsonObject queryResult = queryProcessing(term, 5);   
 		JsonObject rankedResult = rankResult(queryResult);
 		return rankedResult;
 	}
 	
-	private static JsonObject runQuery(String term) throws IOException {
-		// TO DO: run multiple types of queries to find all possible hits in the database
-		SearchSourceBuilder searchSourceBuilder;
-		JsonObject resultJson;
+	private static JsonObject queryProcessing(String term, int k) throws IOException {
 		String fieldName = "functions";
+		JsonObject resultJson, mergedJson = new JsonObject();
+		mergedJson.put("result", new JsonArray());
 		
-		// This is an example of a common terms query
-		searchSourceBuilder = new SearchSourceBuilder();
-		searchSourceBuilder.query(QueryBuilders.commonTermsQuery(fieldName, term)
-		//		.lowFreqOperator(Operator.AND)
-		);
-		resultJson = getQueryResult(searchSourceBuilder, 0.8);
+		// exact match
+		resultJson = doQuery(QueryBuilders.fuzzyQuery(fieldName, term), 2.0);
+		if(resultJson != null) {
+			mergedJson = mergeJsonResult(mergedJson, resultJson);
+		}
 		
-		// This is an example of a terms query (or query)
-		searchSourceBuilder = new SearchSourceBuilder();
-		searchSourceBuilder.query(QueryBuilders.termsQuery(fieldName, term.split(" ")));
-		resultJson = getQueryResult(searchSourceBuilder, 0.1);
-		
-		// This is an example of an and query
-		searchSourceBuilder = new SearchSourceBuilder();
+		// and query
 		BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
 		for (String subTerm : term.split(" ")) {
-			queryBuilder.must(QueryBuilders.termQuery(fieldName, subTerm));
+			queryBuilder.must(QueryBuilders.fuzzyQuery(fieldName, subTerm));
 		}
-		searchSourceBuilder.query(queryBuilder);
-		resultJson = getQueryResult(searchSourceBuilder, 1.0);
+		resultJson = doQuery(queryBuilder, 1.0);
+		if(resultJson != null) {
+			mergedJson = mergeJsonResult(mergedJson, resultJson);
+		}
 		
-		// TO DO: merge the previous results in some way
+		// common terms query
+		resultJson = doQuery(QueryBuilders.commonTermsQuery(fieldName, term), 0.8);
+		if(resultJson != null) {
+			mergedJson = mergeJsonResult(mergedJson, resultJson);
+		}
 		
-		// Tips: switch to fuzzy search for single term if possible
+		// or query
+		resultJson = doQuery(QueryBuilders.termsQuery(fieldName, term.split(" ")), 0.1);
+		if(resultJson != null) {
+			mergedJson = mergeJsonResult(mergedJson, resultJson);
+		}
 
-		return resultJson;
+		JsonObject cascadedJson = doCascading(mergedJson, k);
+		return cascadedJson;
 	}
 	
 	private static JsonObject rankResult(JsonObject result) {
-		JsonObject sortedResult = result;
-		// TO DO: do ranking and sort the list
-		return sortedResult;
+		JsonArray jsonArray = result.getJsonArray("result");
+		List<JsonObject> jsonList = new ArrayList<>();
+		for (int i = 0; i < jsonArray.size(); i++) {
+			jsonList.add(jsonArray.getJsonObject(i));
+		}
+		for (int i = 0; i < jsonList.size(); i++) {
+			double apprank = 1.0;
+			// TO DO: fetch apprank and put it into variable apprank
+			//
+			jsonList.get(i).put("apprank", apprank);
+		}
+		Collections.sort(jsonList, new Comparator<JsonObject> () {
+			@Override
+			public int compare(JsonObject o1, JsonObject o2) {
+				return o2.getDouble("apprank").compareTo(o1.getDouble("apprank"));
+			}
+		});
+		return new JsonObject().put("result", jsonList);
+	}
+	
+	private static JsonObject doCascading(JsonObject jsonObj, int k) {
+		if (jsonObj == null || k <= 0) {
+			return null;
+		}
+		JsonArray jsonArray = jsonObj.getJsonArray("result");
+		if (jsonArray == null) {
+			return null;
+		}
+		List<JsonObject> jsonList = new ArrayList<>();
+		for (int i = 0; i < jsonArray.size(); i++) {
+			jsonList.add(jsonArray.getJsonObject(i));
+		}
+		Collections.sort(jsonList, new Comparator<JsonObject>() {
+			@Override
+			public int compare(JsonObject o1, JsonObject o2) {
+				return o2.getDouble("score").compareTo(o1.getDouble("score"));
+			}
+		});
+		JsonArray resultArray = new JsonArray();
+		for (int i = 0; i < k; i++) {
+			resultArray.add(jsonList.get(i));
+		}
+		return new JsonObject().put("result", resultArray);
+	}
+	
+	private static JsonObject doQuery(QueryBuilder qb, double weight) throws IOException {
+		SearchSourceBuilder searchSourceBuilder;
+		JsonObject resultJson;
+		JsonArray resultList;
+		
+		searchSourceBuilder = new SearchSourceBuilder();
+		searchSourceBuilder.query(qb);
+		resultJson = getQueryResult(searchSourceBuilder, weight);
+		resultList = (JsonArray) resultJson.getValue("result") ;
+		if(resultList.size() > 0) {
+			return resultJson;
+		} else {
+			return null;
+		}
 	}
 	
 	private static JsonObject getQueryResult(SearchSourceBuilder searchSourceBuilder) throws IOException {
-		return getQueryResult(searchSourceBuilder, 0.0);
+		return getQueryResult(searchSourceBuilder, 1.0);
 	}
 	
 	private static JsonObject getQueryResult(SearchSourceBuilder searchSourceBuilder, double weight) throws IOException {
@@ -92,15 +155,38 @@ public class ElasticSearchClient {
 		for (SearchHit hit : searchHits.getHits()) {
 			JsonObject hitAsJson = new JsonObject(hit.getSourceAsMap());
 			hitAsJson.put("id", hit.getId());
-			hitAsJson.put("score", hit.getScore());
+			hitAsJson.put("score", hit.getScore() * weight);
 			hitJsonList.add(hitAsJson);
-		}
-		// For query processing
-		// Put a weight field in the returning json object 
-		if (weight > 0) {
-			resultJson.put("weight", weight);
 		}
 		resultJson.put("result", hitJsonList);
 		return resultJson;
+	}
+	
+	private static JsonObject mergeJsonResult(JsonObject a, JsonObject b) {
+		if (a == null || b == null) {
+			return null;
+		}
+		JsonArray result_array = new JsonArray();
+		JsonArray a_array = a.getJsonArray("result");
+		JsonArray b_array = b.getJsonArray("result");
+		if (a_array == null || b_array == null) {
+			return null;
+		}
+		for (int i = 0; i < a_array.size(); i++) {
+			JsonObject a_jsonObj = a_array.getJsonObject(i);
+			for (int j = 0; j < b_array.size(); j++) {
+				JsonObject b_jsonObj = b_array.getJsonObject(j);
+				if (b_jsonObj.getString("id").equals(a_jsonObj.getString("id"))) {
+					a_jsonObj.put("score", a_jsonObj.getDouble("score") + b_jsonObj.getDouble("score"));
+					b_array.remove(j);
+				}
+			}
+			result_array.add(a_jsonObj);
+		}
+		for (int i = 0; i < b_array.size(); i++) {
+			result_array.add(b_array.getJsonObject(i));
+		}
+		JsonObject result = new JsonObject().put("result", result_array);
+		return result;
 	}
 }
