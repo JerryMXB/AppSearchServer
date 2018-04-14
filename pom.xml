@@ -14,6 +14,18 @@
             <artifactId>vertx-web</artifactId>
             <version>3.5.0</version>
         </dependency>
+        <dependency>
+    		<groupId>org.elasticsearch.client</groupId>
+    		<artifactId>elasticsearch-rest-high-level-client</artifactId>
+    		<version>6.0.1</version>
+		</dependency>
+
+        <!-- https://mvnrepository.com/artifact/com.amazonaws/aws-java-sdk-dynamodb -->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-dynamodb</artifactId>
+            <version>1.11.241</version>
+        </dependency>
     </dependencies>
 
     <build>
